@@ -1,15 +1,19 @@
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django_cas_ng.utils import get_cas_client, get_service_url
-# from django.contrib.auth import login, authenticate
-import json
+from django.contrib.auth import login, authenticate
+import json, pdb
 from django.urls import reverse
+import django_cas_ng.views as cas_views
+
 
 # Create your views here.
 
 def home(request):
     return JsonResponse({
         'is_authenticated': request.user.is_authenticated,
-        'user': str(vars(request.user))
+        'user': str(vars(request.user)),
+        'message': str(vars(request)),
+        'username': request.user.username,
     })
 
 def login(request, force_login=True):
@@ -20,17 +24,18 @@ def login(request, force_login=True):
 
     ticket = request.GET.get('ticket')
     if ticket:
-        sso_profile = authenticate(ticket, client)
+        sso_profile = authenticate2(ticket, client)
 
         if sso_profile is None and force_login:
             return HttpResponseRedirect(login_url)
 
-        return HttpResponse(json.dumps(sso_profile))
+        z = {'sso': sso_profile, 'is_auth':request.user.is_authenticated}
+        return HttpResponse(json.dumps(z))
     else:
         return HttpResponseRedirect(login_url)
 
 
-def authenticate(ticket, client):
+def authenticate2(ticket, client):
     username, attributes, _ = client.verify_ticket(ticket)
 
     if not username:
@@ -41,3 +46,12 @@ def authenticate(ticket, client):
 
     sso_profile = {"username": username, "attributes": attributes}
     return sso_profile
+
+class LoginView(cas_views.LoginView):
+    def successful_login(self, request, next_page):
+        # ticket = request.GET.get('ticket')
+        # service_url = get_service_url(request, next_page)
+        # if ticket:
+        #     user = authenticate(ticket=ticket, service=service_url, request=request)
+
+        return super(LoginView, self).successful_login(request, next_page)
